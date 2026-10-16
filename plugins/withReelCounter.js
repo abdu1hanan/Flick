@@ -132,26 +132,19 @@ const withReelCounter = (config) => {
     // Step 2: Configure app/build.gradle
     config = (0, config_plugins_1.withAppBuildGradle)(config, (mod) => {
         let contents = mod.modResults.contents;
-        // Apply kotlin-kapt
-        if (!contents.includes('apply plugin: "kotlin-kapt"')) {
-            contents = contents.replace('apply plugin: "org.jetbrains.kotlin.android"', 'apply plugin: "org.jetbrains.kotlin.android"\napply plugin: "kotlin-kapt"');
-        }
         // Ensure minSdk is at least 26
         if (contents.includes('minSdkVersion rootProject.ext.minSdkVersion')) {
             contents = contents.replace('minSdkVersion rootProject.ext.minSdkVersion', 'minSdkVersion Math.max(26, (rootProject.ext.minSdkVersion ?: 24) as int)');
         }
-        // Add required dependencies
+        // Add required dependencies (pure Android SQLiteOpenHelper is used, no Room or kapt needed)
         const customDependencies = `
     // Flick / ReelCounter dependencies
     implementation "androidx.appcompat:appcompat:1.7.0"
-    implementation "androidx.room:room-runtime:2.6.1"
-    implementation "androidx.room:room-ktx:2.6.1"
-    kapt "androidx.room:room-compiler:2.6.1"
     implementation "androidx.datastore:datastore-preferences:1.1.1"
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0"
     implementation "androidx.lifecycle:lifecycle-service:2.8.2"
 `;
-        if (!contents.includes('androidx.room:room-runtime')) {
+        if (!contents.includes('androidx.datastore:datastore-preferences')) {
             contents = contents.replace('dependencies {', `dependencies {${customDependencies}`);
         }
         mod.modResults.contents = contents;
@@ -206,12 +199,9 @@ function ensureProguardRules(projectRoot) {
         return;
     let content = fs.readFileSync(proguardPath, 'utf8');
     if (!content.includes('com.reelcounter.flick')) {
-        content += `\n# Room entities & Flick classes
+        content += `\n# Flick classes
 -keep class com.reelcounter.flick.** { *; }
 -dontwarn com.reelcounter.flick.**
--keep class * extends androidx.room.RoomDatabase
--keepattributes *Annotation*
--keepclassmembers class ** { @androidx.room.* <methods>; }
 `;
         fs.writeFileSync(proguardPath, content, 'utf8');
     }
