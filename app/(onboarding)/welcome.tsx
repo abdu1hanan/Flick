@@ -1,62 +1,38 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Animated,
-  SafeAreaView,
-} from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { router } from 'expo-router';
+import { GlowingPillCelebration } from '../../components/GlowingPillCelebration';
 import { Spacing } from '../../constants/spacing';
+import { Fonts } from '../../constants/typography';
 
 export default function WelcomeScreen() {
-  const [floatAnim] = useState(() => new Animated.Value(0));
-
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatAnim, {
-          toValue: -8,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatAnim, {
-          toValue: 0,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [floatAnim]);
-
   return (
-    <View style={[styles.container, { backgroundColor: '#0E0E10' }]}>
+    <View style={styles.container}>
       <SafeAreaView style={styles.inner}>
         <View style={styles.top}>
-          {/* Animated floating pill */}
-          <Animated.View style={[styles.pillWrapper, { transform: [{ translateY: floatAnim }] }]}>
-            <View style={styles.pill}>
-              <Text style={styles.pillIcon}>▶</Text>
-              <Text style={styles.pillText}>3 reels</Text>
-            </View>
-          </Animated.View>
+          {/* Static Glowing Pill with Google-style celebration sparkles */}
+          <View style={styles.previewContainer}>
+            <GlowingPillCelebration count={3} />
+          </View>
 
-          <Text style={styles.appName}>Flick</Text>
+          {/* Wordmark in Pixer font */}
+          <Text style={styles.appName}>flick</Text>
+
+          {/* Minimalist description in Manrope */}
           <Text style={styles.tagline}>Your scrolling, counted.</Text>
           <Text style={styles.description}>
-            Flick counts your Instagram Reels automatically and shows your progress
-            in a tiny floating island — above Instagram, below your camera.
+            Counts your Instagram Reels automatically in a tiny floating island.
+            Zero network. 100% on-device.
           </Text>
         </View>
 
         <View style={styles.bottom}>
           <TouchableOpacity
             style={styles.primaryButton}
+            activeOpacity={0.85}
             onPress={() => router.push('/(onboarding)/accessibility')}
           >
-            <Text style={styles.primaryButtonText}>Get Started →</Text>
+            <Text style={styles.primaryButtonText}>Get Started</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -67,80 +43,68 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#09090B',
   },
   inner: {
     flex: 1,
     paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.xxxl,
+    paddingBottom: Spacing.xxl,
     justifyContent: 'space-between',
   },
   top: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: Spacing.base,
+    gap: Spacing.xs,
   },
-  pillWrapper: {
-    marginBottom: Spacing.xxl,
-  },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1A1A1E',
-    borderRadius: 500,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#2C2C30',
-    shadowColor: '#6B5CE7',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  pillIcon: {
-    color: '#8B7CF6',
-    fontSize: 14,
-  },
-  pillText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+  previewContainer: {
+    marginBottom: Spacing.lg,
   },
   appName: {
-    fontSize: 48,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontFamily: Fonts.pixel,
+    fontSize: 52,
+    color: '#FF6B00',
     letterSpacing: -1,
   },
   tagline: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#8A8A94',
+    fontFamily: Fonts.manropeBold,
+    fontSize: 19,
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+    marginTop: 4,
     textAlign: 'center',
   },
   description: {
-    fontSize: 15,
-    fontWeight: '400',
-    color: '#6B6B72',
+    fontFamily: Fonts.manropeRegular,
+    fontSize: 14,
+    color: '#8E8E96',
     textAlign: 'center',
     lineHeight: 22,
-    marginTop: Spacing.sm,
-    paddingHorizontal: Spacing.sm,
+    letterSpacing: -0.2,
+    marginTop: Spacing.xs,
+    maxWidth: 290,
   },
   bottom: {
-    gap: Spacing.md,
+    paddingBottom: Spacing.md,
   },
   primaryButton: {
-    backgroundColor: '#6B5CE7',
-    borderRadius: 14,
-    paddingVertical: 16,
+    backgroundColor: '#141416',
+    borderRadius: 500,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingVertical: 17,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
   },
   primaryButtonText: {
+    fontFamily: Fonts.manropeBold,
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    letterSpacing: -0.3,
   },
 });

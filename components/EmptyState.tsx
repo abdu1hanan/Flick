@@ -1,9 +1,8 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import { Colors } from '../constants/colors';
-
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { IslandPreview } from './IslandPreview';
 import { Spacing } from '../constants/spacing';
+import { Fonts } from '../constants/typography';
 
 interface EmptyStateProps {
   onSetupPress?: () => void;
@@ -11,60 +10,25 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ onSetupPress, showSetup = false }: EmptyStateProps) {
-  const scheme = useColorScheme() ?? 'light';
-  const colors = Colors[scheme];
-
   return (
     <View style={styles.container}>
-      {/* Simple SVG illustration: pill with wavy lines */}
-      <Svg width={120} height={80} viewBox="0 0 120 80">
-        {/* Pill shape */}
-        <Path
-          d="M20,40 Q20,20 40,20 L80,20 Q100,20 100,40 Q100,60 80,60 L40,60 Q20,60 20,40 Z"
-          fill={colors.accentMuted}
-          stroke={colors.accent}
-          strokeWidth={2}
-        />
-        {/* Play triangle */}
-        <Path d="M48,32 L48,48 L64,40 Z" fill={colors.accent} />
-        {/* Wavy lines suggesting motion */}
-        <Path
-          d="M108,28 Q114,24 108,20"
-          stroke={colors.accent}
-          strokeWidth={2}
-          fill="none"
-          strokeLinecap="round"
-          opacity={0.5}
-        />
-        <Path
-          d="M112,40 Q118,36 112,32"
-          stroke={colors.accent}
-          strokeWidth={2}
-          fill="none"
-          strokeLinecap="round"
-          opacity={0.3}
-        />
-        <Path
-          d="M108,52 Q114,48 108,44"
-          stroke={colors.accent}
-          strokeWidth={2}
-          fill="none"
-          strokeLinecap="round"
-          opacity={0.5}
-        />
-      </Svg>
+      {/* Centered clean island preview */}
+      <View style={styles.pillWrapper}>
+        <IslandPreview count={0} />
+      </View>
 
-      <Text style={[styles.title, { color: colors.textPrimary }]}>No reels counted yet.</Text>
-      <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-        Open Instagram Reels and your counter will appear automatically.
+      <Text style={styles.title}>No reels counted yet</Text>
+      <Text style={styles.subtitle}>
+        Open Instagram and scroll through Reels. Your daily count will track automatically.
       </Text>
 
       {showSetup && onSetupPress && (
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.accent }]}
+          style={styles.button}
+          activeOpacity={0.85}
           onPress={onSetupPress}
         >
-          <Text style={styles.buttonText}>Set up permissions →</Text>
+          <Text style={styles.buttonText}>Enable Permissions</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -75,31 +39,42 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: Spacing.xxxl,
+    paddingVertical: Spacing.xxl,
     paddingHorizontal: Spacing.xl,
-    gap: Spacing.md,
+    gap: Spacing.sm,
+  },
+  pillWrapper: {
+    marginBottom: Spacing.base,
   },
   title: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontFamily: Fonts.manropeBold,
+    fontSize: 18,
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
     textAlign: 'center',
-    marginTop: Spacing.md,
   },
   subtitle: {
+    fontFamily: Fonts.manropeRegular,
     fontSize: 14,
-    fontWeight: '400',
+    color: '#8E8E96',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 21,
+    letterSpacing: -0.2,
+    maxWidth: 260,
   },
   button: {
     marginTop: Spacing.base,
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    borderRadius: 14,
+    backgroundColor: '#141416',
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 500,
   },
   buttonText: {
+    fontFamily: Fonts.manropeBold,
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    letterSpacing: -0.2,
   },
 });

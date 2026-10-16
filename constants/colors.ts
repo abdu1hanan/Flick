@@ -1,41 +1,31 @@
-// Color tokens for light and dark mode
-const lightTheme = {
-  background: '#F7F7F8',
-  cardBackground: '#FFFFFF',
-  border: '#E8E8EC',
-  textPrimary: '#0E0E10',
-  textSecondary: '#6B6B72',
-  accent: '#6B5CE7',
-  accentMuted: '#EDE9FB',
-  danger: '#E74C3C',
-  islandBlack: '#000000',
-  islandText: '#FFFFFF',
-  chartBar: '#6B5CE7',
-  chartBarToday: '#6B5CE7',
-  chartBarInactive: '#D8D4F5',
-  statCardBg: '#FFFFFF',
-  shadow: '#000',
-} as const;
-
+// Color tokens for Flick — Minimalist Orange & Black Theme
 const darkTheme = {
-  background: '#0E0E10',
-  cardBackground: '#1A1A1E',
-  border: '#2C2C30',
-  textPrimary: '#F0F0F4',
-  textSecondary: '#8A8A94',
-  accent: '#8B7CF6',
-  accentMuted: '#2D2852',
-  danger: '#E74C3C',
+  background: '#09090B',
+  cardBackground: '#131316',
+  cardBackgroundHover: '#1A1A1E',
+  border: '#202024',
+  borderSubtle: '#18181C',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#8E8E96',
+  textMuted: '#52525B',
+  accent: '#FF6B00',
+  accentHover: '#FF7D1A',
+  accentMuted: 'rgba(255, 107, 0, 0.12)',
+  accentGlow: 'rgba(255, 107, 0, 0.25)',
+  danger: '#EF4444',
+  success: '#10B981',
   islandBlack: '#000000',
   islandText: '#FFFFFF',
-  chartBar: '#8B7CF6',
-  chartBarToday: '#8B7CF6',
-  chartBarInactive: '#2D2852',
-  statCardBg: '#1A1A1E',
-  shadow: '#000',
+  buttonBlack: '#141416',
+  buttonBorder: '#27272A',
+  chartBar: '#FF6B00',
+  chartBarToday: '#FF6B00',
+  chartBarInactive: '#1E1E22',
+  statCardBg: '#131316',
+  shadow: '#000000',
 } as const;
 
-export type ThemeColors = { [K in keyof typeof lightTheme]: string };
+export type ThemeColors = { [K in keyof typeof darkTheme]: string };
 export type ColorScheme = 'light' | 'dark';
 
 export const Colors: Record<string, ThemeColors> & {
@@ -43,9 +33,7 @@ export const Colors: Record<string, ThemeColors> & {
   dark: ThemeColors;
   unspecified: ThemeColors;
 } = {
-  light: lightTheme,
+  light: darkTheme, // Pure Dark / Orange theme is default for Flick
   dark: darkTheme,
-  unspecified: lightTheme,
+  unspecified: darkTheme,
 };
-
-

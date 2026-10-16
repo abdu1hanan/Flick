@@ -5,11 +5,10 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  useColorScheme,
-  SafeAreaView,
   RefreshControl,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useReelStats } from '../../hooks/useReelStats';
 import { useReelEvent } from '../../hooks/useReelEvent';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -19,8 +18,8 @@ import { SessionStatsCard } from '../../components/SessionStats';
 import { DayRow } from '../../components/DayRow';
 import { IslandPreview } from '../../components/IslandPreview';
 import { EmptyState } from '../../components/EmptyState';
-import { Colors } from '../../constants/colors';
-import { Spacing, Radius } from '../../constants/spacing';
+import { Spacing } from '../../constants/spacing';
+import { Fonts } from '../../constants/typography';
 
 function todayDateStr(): string {
   const d = new Date();
@@ -31,8 +30,7 @@ function todayDateStr(): string {
 }
 
 export default function DashboardScreen() {
-  const scheme = useColorScheme() ?? 'light';
-  const colors = Colors[scheme];
+  const insets = useSafeAreaInsets();
   const { stats, loading, refresh } = useReelStats();
   const { permissions } = usePermissions();
   const [todayLive, setTodayLive] = useState<number | null>(null);
@@ -54,70 +52,78 @@ export default function DashboardScreen() {
   const isEmpty = stats.allTimeTotal === 0 && !loading;
   const todayStr = todayDateStr();
 
+  // Intelligent Android status bar offset
+  const topPadding = Math.max(insets.top + 6, 40);
+
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <IslandPreview count={displayToday} />
-        </View>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Flick</Text>
+    <View style={styles.root}>
+      {/* Top Header: intelligently spaced for Android phone top status bar (SIM, battery, notch) */}
+      <View style={[styles.header, { paddingTop: topPadding }]}>
+        <View style={styles.headerSide} />
+        {/* Top Center: App name "flick" in Pixer font */}
+        <Text style={styles.headerTitle}>flick</Text>
         <TouchableOpacity
-          style={styles.headerRight}
+          style={[styles.headerSide, styles.headerRight]}
           onPress={() => router.push('/(app)/settings')}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          activeOpacity={0.7}
         >
-          <Text style={[styles.settingsIcon, { color: colors.textSecondary }]}>⚙</Text>
+          <Text style={styles.settingsIcon}>⚙</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          isEmpty && styles.emptyScrollContent,
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={colors.accent}
+            tintColor="#FF6B00"
           />
         }
       >
         {isEmpty ? (
-          <EmptyState
-            showSetup={!permissions.accessibility || !permissions.overlay}
-            onSetupPress={() => router.push('/(app)/settings')}
-          />
+          <View style={styles.emptyContainer}>
+            <EmptyState
+              showSetup={!permissions.accessibility || !permissions.overlay}
+              onSetupPress={() => router.push('/(app)/settings')}
+            />
+          </View>
         ) : (
           <>
-            {/* Hero card */}
-            <View style={[styles.heroCard, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-              <Text style={[styles.heroNumber, { color: colors.accent }]}>{displayToday}</Text>
-              <Text style={[styles.heroLabel, { color: colors.textSecondary }]}>reels today</Text>
-              <View style={{ marginTop: Spacing.base }}>
+            {/* Hero Card: Minimal, clean, no AI slop */}
+            <View style={styles.heroCard}>
+              <Text style={styles.heroNumber}>{displayToday}</Text>
+              <Text style={styles.heroLabel}>reels today</Text>
+              <View style={styles.heroPillContainer}>
                 <IslandPreview count={displayToday} />
               </View>
             </View>
 
-            {/* Stats row */}
+            {/* Clean 4-Stat Row */}
             <View style={styles.statsRow}>
               <StatCard label="Today" value={displayToday} accent />
               <StatCard label="Yesterday" value={stats.yesterdayCount} />
-              <StatCard label="7 days" value={stats.last7DaysTotal} />
-              <StatCard label="All time" value={stats.allTimeTotal} />
+              <StatCard label="7 Days" value={stats.last7DaysTotal} />
+              <StatCard label="All Time" value={stats.allTimeTotal} />
             </View>
 
-            {/* Weekly chart */}
-            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+            {/* Weekly Activity Chart */}
+            <View style={styles.card}>
               <WeeklyChart data={stats.dailySummary} />
             </View>
 
-            {/* Session stats */}
+            {/* Session Analytics */}
             <SessionStatsCard stats={stats.sessionStats} />
 
-            {/* Recent days */}
-            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-              <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Recent Days</Text>
+            {/* Recent Days History */}
+            <View style={styles.card}>
+              <Text style={styles.cardSectionTitle}>Recent Days</Text>
               {stats.dailySummary.slice(0, 7).map((day) => (
                 <DayRow
                   key={day.localDate}
@@ -130,24 +136,24 @@ export default function DashboardScreen() {
                 <TouchableOpacity
                   style={styles.viewAllButton}
                   onPress={() => router.push('/(app)/history')}
+                  activeOpacity={0.7}
                 >
-                  <Text style={[styles.viewAllText, { color: colors.accent }]}>
-                    View all history →
-                  </Text>
+                  <Text style={styles.viewAllText}>View All History &rarr;</Text>
                 </TouchableOpacity>
               )}
             </View>
 
-            {/* Permission warning if missing */}
+            {/* Permission banner if missing */}
             {(!permissions.accessibility || !permissions.overlay) && (
               <TouchableOpacity
-                style={[styles.warningBanner, { borderColor: colors.border }]}
+                style={styles.warningBanner}
                 onPress={() => router.push('/(app)/settings')}
+                activeOpacity={0.8}
               >
-                <Text style={[styles.warningText, { color: colors.textSecondary }]}>
+                <Text style={styles.warningText}>
                   {!permissions.accessibility
-                    ? '⚠ Accessibility access required to count reels →'
-                    : '⚠ Overlay permission needed for floating island →'}
+                    ? 'Accessibility permission required to count reels'
+                    : 'Overlay permission needed for floating island'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -155,94 +161,129 @@ export default function DashboardScreen() {
         )}
         <View style={{ height: Spacing.xxxl }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
+  root: {
+    flex: 1,
+    backgroundColor: '#09090B',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.base,
-    paddingTop: Spacing.md,
+    paddingHorizontal: Spacing.xl,
     paddingBottom: Spacing.sm,
+    backgroundColor: '#09090B',
   },
-  headerLeft: { flex: 1 },
+  headerSide: {
+    width: 36,
+  },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontFamily: Fonts.pixel,
+    fontSize: 28,
+    color: '#FF6B00',
     letterSpacing: -0.5,
     textAlign: 'center',
+  },
+  headerRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  settingsIcon: {
+    fontSize: 18,
+    color: '#8E8E96',
+  },
+  scroll: {
     flex: 1,
   },
-  headerRight: { flex: 1, alignItems: 'flex-end' },
-  settingsIcon: { fontSize: 22 },
-  scroll: { flex: 1 },
   scrollContent: {
-    paddingHorizontal: Spacing.base,
+    paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.sm,
     gap: Spacing.md,
   },
-  heroCard: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    padding: Spacing.xl,
+  emptyScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
+    justifyContent: 'center',
+    paddingBottom: Spacing.xxxl,
+  },
+  heroCard: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#202024',
+    backgroundColor: '#131316',
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   heroNumber: {
-    fontSize: 80,
-    fontWeight: '800',
+    fontFamily: Fonts.manropeExtra,
+    fontSize: 78,
+    color: '#FF6B00',
     letterSpacing: -3,
-    lineHeight: 88,
+    lineHeight: 84,
   },
   heroLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginTop: -4,
+    fontFamily: Fonts.manropeMedium,
+    fontSize: 15,
+    color: '#8E8E96',
+    letterSpacing: -0.2,
+    marginTop: 2,
+    marginBottom: Spacing.base,
+  },
+  heroPillContainer: {
+    marginTop: 2,
   },
   statsRow: {
     flexDirection: 'row',
-    marginHorizontal: -Spacing.xs / 2,
+    marginHorizontal: -4,
   },
   card: {
-    borderRadius: Radius.xl,
+    borderRadius: 20,
     borderWidth: 1,
+    borderColor: '#202024',
+    backgroundColor: '#131316',
     padding: Spacing.base,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
   },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: Spacing.sm,
+  cardSectionTitle: {
+    fontFamily: Fonts.manropeSemi,
+    fontSize: 11,
+    color: '#8E8E96',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: Spacing.xs,
   },
   viewAllButton: {
     paddingTop: Spacing.md,
     alignItems: 'center',
   },
   viewAllText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontFamily: Fonts.manropeBold,
+    fontSize: 13,
+    color: '#FF6B00',
+    letterSpacing: -0.2,
   },
   warningBanner: {
     borderWidth: 1,
-    borderRadius: Radius.md,
+    borderColor: 'rgba(255, 107, 0, 0.3)',
+    backgroundColor: 'rgba(255, 107, 0, 0.08)',
+    borderRadius: 14,
     padding: Spacing.md,
     alignItems: 'center',
   },
   warningText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontFamily: Fonts.manropeMedium,
+    fontSize: 12,
+    color: '#FF6B00',
     textAlign: 'center',
+    letterSpacing: -0.2,
   },
 });

@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, useColorScheme } from 'react-native';
-import { Colors } from '../constants/colors';
+import { View, Text, StyleSheet } from 'react-native';
 import { Spacing, Radius } from '../constants/spacing';
+import { Fonts } from '../constants/typography';
 import type { SessionStats } from '../types';
 
 interface SessionStatsProps {
@@ -9,28 +9,18 @@ interface SessionStatsProps {
 }
 
 function StatRow({ label, value }: { label: string; value: string }) {
-  const scheme = useColorScheme() ?? 'light';
-  const colors = Colors[scheme];
   return (
-    <View style={[styles.row, { borderBottomColor: colors.border }]}>
-      <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[styles.rowValue, { color: colors.textPrimary }]}>{value}</Text>
+    <View style={styles.row}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={styles.rowValue}>{value}</Text>
     </View>
   );
 }
 
 export function SessionStatsCard({ stats }: SessionStatsProps) {
-  const scheme = useColorScheme() ?? 'light';
-  const colors = Colors[scheme];
-
   return (
-    <View
-      style={[
-        styles.card,
-        { backgroundColor: colors.cardBackground, borderColor: colors.border },
-      ]}
-    >
-      <Text style={[styles.title, { color: colors.textPrimary }]}>Session Stats</Text>
+    <View style={styles.card}>
+      <Text style={styles.title}>Session Analytics</Text>
       <StatRow label="Total sessions" value={String(stats.totalSessions)} />
       <StatRow label="Sessions today" value={String(stats.sessionsToday)} />
       <StatRow
@@ -51,33 +41,38 @@ export function SessionStatsCard({ stats }: SessionStatsProps) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: Radius.xl,
+    borderRadius: Radius.lg,
     borderWidth: 1,
+    borderColor: '#202024',
+    backgroundColor: '#131316',
     padding: Spacing.base,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
   },
   title: {
-    fontSize: 15,
-    fontWeight: '600',
-    marginBottom: Spacing.md,
+    fontFamily: Fonts.manropeSemi,
+    fontSize: 11,
+    color: '#8E8E96',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: Spacing.sm,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: Spacing.sm,
+    paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#202024',
   },
   rowLabel: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontFamily: Fonts.manropeRegular,
+    fontSize: 13,
+    color: '#8E8E96',
+    letterSpacing: -0.2,
   },
   rowValue: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontFamily: Fonts.manropeSemi,
+    fontSize: 13,
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
 });

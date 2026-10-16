@@ -1,16 +1,12 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ReelCounter from '../../modules/reelcounter-native/src';
 import { usePermissions } from '../../hooks/usePermissions';
+import { GlowingPillCelebration } from '../../components/GlowingPillCelebration';
 import { Spacing } from '../../constants/spacing';
+import { Fonts } from '../../constants/typography';
 
 const ONBOARDING_KEY = 'flick_onboarding_completed';
 
@@ -28,52 +24,46 @@ export default function OverlayScreen() {
 
   return (
     <View style={styles.container}>
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.content}>
-          {/* Step indicator */}
-          <View style={styles.steps}>
-            <View style={[styles.step, styles.stepDone]} />
-            <View style={[styles.step, styles.stepDone]} />
-            <View style={[styles.step, styles.stepActive]} />
+      <SafeAreaView style={styles.inner}>
+        <View style={styles.centerContent}>
+          {/* Same Celebration Glow Pill as Screen 1 */}
+          <View style={styles.previewContainer}>
+            <GlowingPillCelebration count={3} />
           </View>
-          <Text style={styles.stepLabel}>Step 3 of 3</Text>
 
+          {/* Title */}
           <Text style={styles.title}>Allow Overlay</Text>
-          <Text style={styles.description}>
-            This lets Flick display the floating island above Instagram.
-            {'\n\n'}
-            <Text style={styles.muted}>
-              If you skip this, Flick will still count reels — you just won{'\u2019'}t see
-              the floating island.
-            </Text>
 
+          {/* Minimal description */}
+          <Text style={styles.description}>
+            Displays the subtle pill counter right above Instagram while you scroll.
           </Text>
 
-          {/* Visual: show where the island appears */}
-          <View style={styles.preview}>
-            <View style={styles.mockStatusBar} />
-            <View style={styles.mockIsland}>
-              <Text style={styles.mockIslandText}>▶  3 reels</Text>
-            </View>
-            <View style={styles.mockContent}>
-              <Text style={styles.mockLabel}>Instagram Reels</Text>
-            </View>
-          </View>
-
           {permissions.overlay && (
-            <View style={styles.enabledBadge}>
-              <Text style={styles.enabledText}>✓ Overlay Enabled</Text>
+            <View style={styles.statusPill}>
+              <Text style={styles.statusText}>✓ Overlay Permission Active</Text>
             </View>
           )}
         </View>
 
-        <View style={styles.buttons}>
-          <TouchableOpacity style={styles.primaryButton} onPress={openSettings}>
+        {/* Bottom Actions */}
+        <View style={styles.bottom}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            activeOpacity={0.85}
+            onPress={openSettings}
+          >
             <Text style={styles.primaryButtonText}>Open Overlay Settings</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.doneButton} onPress={onDone}>
-            <Text style={styles.doneButtonText}>
-              {permissions.overlay ? "All set! Let's go →" : 'Skip & Continue →'}
+
+          {/* Very small, underlined white link */}
+          <TouchableOpacity
+            style={styles.linkButton}
+            activeOpacity={0.7}
+            onPress={onDone}
+          >
+            <Text style={styles.linkText}>
+              {permissions.overlay ? 'All set, enter Flick' : 'Skip for now'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -83,55 +73,92 @@ export default function OverlayScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0E0E10' },
-  safe: { flex: 1, paddingHorizontal: Spacing.xl, justifyContent: 'space-between' },
-  content: { flex: 1, paddingTop: Spacing.xxl, gap: Spacing.base },
-  steps: { flexDirection: 'row', gap: 6 },
-  step: { flex: 1, height: 3, backgroundColor: '#2C2C30', borderRadius: 2 },
-  stepDone: { backgroundColor: '#6B5CE7' },
-  stepActive: { backgroundColor: '#8B7CF6' },
-  stepLabel: { fontSize: 12, color: '#6B6B72', fontWeight: '500' },
-  title: { fontSize: 28, fontWeight: '800', color: '#FFFFFF', marginTop: Spacing.sm },
-  description: { fontSize: 15, color: '#F0F0F4', lineHeight: 22 },
-  muted: { color: '#6B6B72' },
-  preview: {
-    backgroundColor: '#1A1A1E',
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#2C2C30',
-    height: 160,
-    marginTop: Spacing.base,
+  container: {
+    flex: 1,
+    backgroundColor: '#09090B',
   },
-  mockStatusBar: { height: 20, backgroundColor: '#111' },
-  mockIsland: {
-    backgroundColor: '#000',
+  inner: {
+    flex: 1,
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.xxl,
+    justifyContent: 'space-between',
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+  previewContainer: {
+    marginBottom: Spacing.base,
+  },
+  title: {
+    fontFamily: Fonts.manropeBold,
+    fontSize: 24,
+    color: '#FFFFFF',
+    letterSpacing: -0.6,
+    textAlign: 'center',
+    marginBottom: Spacing.xs,
+  },
+  description: {
+    fontFamily: Fonts.manropeRegular,
+    fontSize: 14,
+    color: '#8E8E96',
+    textAlign: 'center',
+    lineHeight: 21,
+    letterSpacing: -0.2,
+    maxWidth: 270,
+  },
+  statusPill: {
+    marginTop: Spacing.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: 500,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    alignSelf: 'center',
-    marginTop: 4,
-  },
-  mockIslandText: { color: '#FFF', fontWeight: '600', fontSize: 12 },
-  mockContent: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  mockLabel: { color: '#2C2C30', fontSize: 12 },
-  enabledBadge: {
-    backgroundColor: '#1A3A2A',
-    borderRadius: 10,
-    paddingVertical: Spacing.sm,
-    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
     borderWidth: 1,
-    borderColor: '#34C759',
+    borderColor: 'rgba(16, 185, 129, 0.3)',
   },
-  enabledText: { color: '#34C759', fontWeight: '600', fontSize: 14 },
-  buttons: { paddingBottom: Spacing.xl, gap: Spacing.sm },
-  primaryButton: {
-    backgroundColor: '#6B5CE7',
-    borderRadius: 14,
-    paddingVertical: 16,
+  statusText: {
+    fontFamily: Fonts.manropeSemi,
+    fontSize: 12,
+    color: '#10B981',
+    letterSpacing: -0.2,
+  },
+  bottom: {
+    paddingBottom: Spacing.md,
+    gap: 12,
     alignItems: 'center',
   },
-  primaryButtonText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
-  doneButton: { alignItems: 'center', paddingVertical: 12 },
-  doneButtonText: { color: '#8B7CF6', fontSize: 15, fontWeight: '600' },
+  primaryButton: {
+    backgroundColor: '#141416',
+    borderRadius: 500,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingVertical: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  primaryButtonText: {
+    fontFamily: Fonts.manropeBold,
+    color: '#FFFFFF',
+    fontSize: 15,
+    letterSpacing: -0.3,
+  },
+  linkButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  linkText: {
+    fontFamily: Fonts.manropeMedium,
+    color: '#FFFFFF',
+    fontSize: 12,
+    textDecorationLine: 'underline',
+    letterSpacing: -0.2,
+  },
 });

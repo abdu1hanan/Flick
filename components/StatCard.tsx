@@ -1,8 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, useColorScheme } from 'react-native';
-import { Colors } from '../constants/colors';
-
-import { Spacing, Radius } from '../constants/spacing';
+import { View, Text, StyleSheet } from 'react-native';
+import { Spacing } from '../constants/spacing';
+import { Fonts } from '../constants/typography';
 
 interface StatCardProps {
   label: string;
@@ -11,22 +10,16 @@ interface StatCardProps {
 }
 
 export function StatCard({ label, value, accent = false }: StatCardProps) {
-  const scheme = useColorScheme() ?? 'light';
-  const colors = Colors[scheme];
-
   return (
-    <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+    <View style={styles.card}>
       <Text
-        style={[
-          styles.value,
-          { color: accent ? colors.accent : colors.textPrimary },
-        ]}
+        style={[styles.value, { color: accent ? '#FF6B00' : '#FFFFFF' }]}
         numberOfLines={1}
         adjustsFontSizeToFit
       >
         {value}
       </Text>
-      <Text style={[styles.label, { color: colors.textSecondary }]} numberOfLines={1}>
+      <Text style={styles.label} numberOfLines={1}>
         {label}
       </Text>
     </View>
@@ -36,28 +29,28 @@ export function StatCard({ label, value, accent = false }: StatCardProps) {
 const styles = StyleSheet.create({
   card: {
     flex: 1,
-    marginHorizontal: Spacing.xs / 2,
-    borderRadius: Radius.lg,
+    marginHorizontal: 4,
+    borderRadius: 16,
     borderWidth: 1,
+    borderColor: '#202024',
+    backgroundColor: '#131316',
     paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    justifyContent: 'center',
   },
   value: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontFamily: Fonts.manropeBold,
+    fontSize: 20,
+    letterSpacing: -0.6,
     marginBottom: 2,
   },
   label: {
+    fontFamily: Fonts.manropeMedium,
     fontSize: 10,
-    fontWeight: '500',
+    color: '#8E8E96',
     textAlign: 'center',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: -0.1,
   },
 });

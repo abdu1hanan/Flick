@@ -5,23 +5,21 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  useColorScheme,
-  SafeAreaView,
   Switch,
   Alert,
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { usePermissions } from '../../hooks/usePermissions';
 import { PermissionRow } from '../../components/PermissionRow';
 import ReelCounter from '../../modules/reelcounter-native/src';
-import { Colors } from '../../constants/colors';
 import { Spacing, Radius } from '../../constants/spacing';
+import { Fonts } from '../../constants/typography';
 
 export default function SettingsScreen() {
-  const scheme = useColorScheme() ?? 'light';
-  const colors = Colors[scheme];
+  const insets = useSafeAreaInsets();
   const { permissions, recheck } = usePermissions();
   const [overlayEnabled, setOverlayEnabled] = useState(true);
   const [clearing, setClearing] = useState(false);
@@ -36,25 +34,25 @@ export default function SettingsScreen() {
     try {
       await ReelCounter.setOverlayPreference(val);
     } catch {
-      setOverlayEnabled(!val); // revert on error
+      setOverlayEnabled(!val);
     }
   }, []);
 
   const handleClearData = useCallback(() => {
     Alert.alert(
       'Clear all statistics?',
-      'This will permanently delete all your reel counts and session history. This cannot be undone.',
+      'This will permanently delete all your reel counts and session history.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Clear',
+          text: 'Clear Data',
           style: 'destructive',
           onPress: async () => {
             setClearing(true);
             try {
               await ReelCounter.clearAllData();
             } catch {
-              Alert.alert('Error', 'Failed to clear data. Please try again.');
+              Alert.alert('Error', 'Failed to clear data.');
             } finally {
               setClearing(false);
             }
@@ -66,37 +64,64 @@ export default function SettingsScreen() {
 
   const version = Constants.expoConfig?.version ?? '1.0.0';
   const trackingActive = permissions.accessibility;
+  const topPadding = Math.max(insets.top + 6, 40);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]}>
+    <View style={styles.root}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={[styles.back, { color: colors.accent }]}>← Back</Text>
+      <View style={[styles.header, { paddingTop: topPadding }]}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.backButton}>&larr; Back</Text>
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.textPrimary }]}>Settings</Text>
+        <Text style={styles.title}>Settings</Text>
         <View style={{ width: 60 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Tracking Status */}
-        <SectionHeader title="Tracking Status" colors={colors} />
-        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+        <Text style={styles.sectionHeader}>Tracking Status</Text>
+        <View style={styles.card}>
           <PermissionRow
-            label="Accessibility Access"
+            label="Accessibility Service"
             enabled={permissions.accessibility}
-            onOpen={() => { ReelCounter.openAccessibilitySettings(); setTimeout(recheck, 2000); }}
+            onOpen={() => {
+              ReelCounter.openAccessibilitySettings();
+              setTimeout(recheck, 2000);
+            }}
           />
           <PermissionRow
             label="Display Overlay"
             enabled={permissions.overlay}
-            onOpen={() => { ReelCounter.openOverlaySettings(); setTimeout(recheck, 2000); }}
+            onOpen={() => {
+              ReelCounter.openOverlaySettings();
+              setTimeout(recheck, 2000);
+            }}
           />
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
-            <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Tracking Active</Text>
-            <View style={[styles.statusChip, { backgroundColor: trackingActive ? '#1A3A2A' : colors.accentMuted }]}>
-              <Text style={[styles.statusChipText, { color: trackingActive ? '#34C759' : colors.textSecondary }]}>
+            <Text style={styles.rowLabel}>Tracking Active</Text>
+            <View
+              style={[
+                styles.statusChip,
+                {
+                  backgroundColor: trackingActive
+                    ? 'rgba(16, 185, 129, 0.1)'
+                    : 'rgba(239, 68, 68, 0.1)',
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusChipText,
+                  { color: trackingActive ? '#10B981' : '#EF4444' },
+                ]}
+              >
                 {trackingActive ? 'Active' : 'Inactive'}
               </Text>
             </View>
@@ -104,107 +129,112 @@ export default function SettingsScreen() {
         </View>
 
         {/* Overlay */}
-        <SectionHeader title="Overlay" colors={colors} />
-        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+        <Text style={styles.sectionHeader}>Floating Island</Text>
+        <View style={styles.card}>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
             <View>
-              <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Show floating island</Text>
-              <Text style={[styles.rowSub, { color: colors.textSecondary }]}>
-                Display count above Instagram
-              </Text>
+              <Text style={styles.rowLabel}>Show Island Overlay</Text>
+              <Text style={styles.rowSub}>Display pill counter while in Instagram</Text>
             </View>
             <Switch
               value={overlayEnabled}
               onValueChange={handleOverlayToggle}
-              trackColor={{ false: colors.border, true: colors.accent }}
+              trackColor={{ false: '#27272A', true: '#FF6B00' }}
               thumbColor="#FFFFFF"
             />
           </View>
         </View>
 
         {/* Data */}
-        <SectionHeader title="Data" colors={colors} />
-        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
+        <Text style={styles.sectionHeader}>Data Management</Text>
+        <View style={styles.card}>
           <TouchableOpacity
             style={[styles.row, { borderBottomWidth: 0 }]}
             onPress={handleClearData}
             disabled={clearing}
+            activeOpacity={0.7}
           >
             {clearing ? (
-              <ActivityIndicator color={colors.danger} />
+              <ActivityIndicator color="#EF4444" size="small" />
             ) : (
-              <Text style={[styles.rowLabel, { color: colors.danger }]}>Clear all statistics</Text>
+              <Text style={[styles.rowLabel, { color: '#EF4444' }]}>
+                Clear all statistics
+              </Text>
             )}
-            {!clearing && <Text style={{ color: colors.textSecondary }}>›</Text>}
+            {!clearing && <Text style={{ color: '#8E8E96' }}>&rsaquo;</Text>}
           </TouchableOpacity>
         </View>
 
         {/* About */}
-        <SectionHeader title="About" colors={colors} />
-        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.border }]}>
-          <View style={[styles.row, { borderBottomColor: colors.border }]}>
-            <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>App</Text>
-            <Text style={[styles.rowValue, { color: colors.textPrimary }]}>Flick</Text>
+        <Text style={styles.sectionHeader}>About</Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>App</Text>
+            <Text style={styles.appWordmark}>flick</Text>
           </View>
           <View style={[styles.row, { borderBottomWidth: 0 }]}>
-            <Text style={[styles.rowLabel, { color: colors.textSecondary }]}>Version</Text>
-            <Text style={[styles.rowValue, { color: colors.textPrimary }]}>{version}</Text>
+            <Text style={styles.rowLabel}>Version</Text>
+            <Text style={styles.rowValue}>{version}</Text>
           </View>
         </View>
 
-        <View style={[styles.privacyCard, { backgroundColor: colors.accentMuted }]}>
-          <Text style={[styles.privacyText, { color: colors.textSecondary }]}>
-            🔒 Privacy: All data is stored locally on your device. No data is ever sent to any server, cloud service, or third party. Flick never reads Instagram content — only navigation events.
+        <View style={styles.privacyCard}>
+          <Text style={styles.privacyText}>
+            Privacy: All data is stored purely on your phone. No network connections, telemetry, or analytics are used. Flick only reads scroll navigation events inside Instagram.
           </Text>
         </View>
 
         <View style={{ height: Spacing.xxxl }} />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
-
-function SectionHeader({ title, colors }: { title: string; colors: any }) {
-  return (
-    <Text style={[headerStyles.label, { color: colors.textSecondary }]}>
-      {title}
-    </Text>
-  );
-}
-
-const headerStyles = StyleSheet.create({
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    paddingLeft: Spacing.xs,
-    marginTop: Spacing.base,
-    marginBottom: Spacing.xs,
-  },
-});
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
+  root: {
+    flex: 1,
+    backgroundColor: '#09090B',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
+    paddingBottom: Spacing.sm,
+    backgroundColor: '#09090B',
   },
-  back: { fontSize: 15, fontWeight: '600', width: 60 },
-  title: { fontSize: 17, fontWeight: '700' },
-  content: { paddingHorizontal: Spacing.base, paddingTop: Spacing.sm },
-  card: {
-    borderRadius: Radius.xl,
-    borderWidth: 1,
+  backButton: {
+    fontFamily: Fonts.manropeBold,
+    fontSize: 14,
+    color: '#FF6B00',
+    width: 60,
+  },
+  title: {
+    fontFamily: Fonts.manropeBold,
+    fontSize: 17,
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
+  },
+  content: {
     paddingHorizontal: Spacing.base,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingTop: Spacing.xs,
+  },
+  sectionHeader: {
+    fontFamily: Fonts.manropeSemi,
+    fontSize: 11,
+    color: '#8E8E96',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    paddingLeft: Spacing.xs,
+    marginTop: Spacing.lg,
+    marginBottom: Spacing.xs,
+  },
+  card: {
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: '#202024',
+    backgroundColor: '#131316',
+    paddingHorizontal: Spacing.base,
   },
   row: {
     flexDirection: 'row',
@@ -212,20 +242,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Spacing.md,
     borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#202024',
   },
-  rowLabel: { fontSize: 15, fontWeight: '500' },
-  rowSub: { fontSize: 12, fontWeight: '400', marginTop: 2 },
-  rowValue: { fontSize: 15, fontWeight: '400' },
+  rowLabel: {
+    fontFamily: Fonts.manropeMedium,
+    fontSize: 14,
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
+  },
+  rowSub: {
+    fontFamily: Fonts.manropeRegular,
+    fontSize: 12,
+    color: '#8E8E96',
+    marginTop: 2,
+    letterSpacing: -0.1,
+  },
+  rowValue: {
+    fontFamily: Fonts.manropeRegular,
+    fontSize: 14,
+    color: '#8E8E96',
+  },
+  appWordmark: {
+    fontFamily: Fonts.pixel,
+    fontSize: 18,
+    color: '#FF6B00',
+  },
   statusChip: {
-    borderRadius: 8,
-    paddingHorizontal: Spacing.sm,
+    borderRadius: 500,
+    paddingHorizontal: 12,
     paddingVertical: 4,
   },
-  statusChipText: { fontSize: 12, fontWeight: '600' },
+  statusChipText: {
+    fontFamily: Fonts.manropeSemi,
+    fontSize: 12,
+    letterSpacing: -0.2,
+  },
   privacyCard: {
     marginTop: Spacing.base,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.md,
     padding: Spacing.base,
+    backgroundColor: '#131316',
+    borderWidth: 1,
+    borderColor: '#202024',
   },
-  privacyText: { fontSize: 13, lineHeight: 19 },
+  privacyText: {
+    fontFamily: Fonts.manropeRegular,
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#71717A',
+    letterSpacing: -0.1,
+  },
 });
