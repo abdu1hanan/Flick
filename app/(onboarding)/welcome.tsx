@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.pixel,
     fontSize: 52,
     color: '#FF6B00',
-    letterSpacing: -1,
+    letterSpacing: 2,
   },
   tagline: {
     fontFamily: Fonts.manropeBold,

@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.pixel,
     fontSize: 28,
     color: '#FF6B00',
-    letterSpacing: -0.5,
+    letterSpacing: 2,
     textAlign: 'center',
   },
   headerRight: {

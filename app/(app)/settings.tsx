@@ -70,15 +70,7 @@ export default function SettingsScreen() {
     <View style={styles.root}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding }]}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.backButton}>&larr; Back</Text>
-        </TouchableOpacity>
         <Text style={styles.title}>Settings</Text>
-        <View style={{ width: 60 }} />
       </View>
 
       <ScrollView
@@ -182,10 +174,24 @@ export default function SettingsScreen() {
           <Text style={styles.privacyText}>
             Privacy: All data is stored purely on your phone. No network connections, telemetry, or analytics are used. Flick only reads scroll navigation events inside Instagram.
           </Text>
+          <Text style={styles.developerNote}>
+            Crafted with passion by developer sussybakra
+          </Text>
         </View>
 
-        <View style={{ height: Spacing.xxxl }} />
+        <View style={{ height: Spacing.xl }} />
       </ScrollView>
+
+      {/* Bottom Bar: big main button like initial screens */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity
+          style={styles.primaryButton}
+          activeOpacity={0.85}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.primaryButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -196,24 +202,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#09090B',
   },
   header: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: Spacing.base,
     paddingBottom: Spacing.sm,
     backgroundColor: '#09090B',
-  },
-  backButton: {
-    fontFamily: Fonts.manropeBold,
-    fontSize: 14,
-    color: '#FF6B00',
-    width: 60,
   },
   title: {
     fontFamily: Fonts.manropeBold,
     fontSize: 17,
     color: '#FFFFFF',
     letterSpacing: -0.4,
+    textAlign: 'center',
   },
   content: {
     paddingHorizontal: Spacing.base,
@@ -266,6 +266,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.pixel,
     fontSize: 18,
     color: '#FF6B00',
+    letterSpacing: 2,
   },
   statusChip: {
     borderRadius: 500,
@@ -291,5 +292,38 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#71717A',
     letterSpacing: -0.1,
+  },
+  developerNote: {
+    fontFamily: Fonts.manropeMedium,
+    fontSize: 12,
+    color: '#FF6B00',
+    marginTop: Spacing.sm,
+    letterSpacing: -0.1,
+  },
+  bottomBar: {
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: Spacing.xl,
+    paddingTop: Spacing.xs,
+    backgroundColor: '#09090B',
+  },
+  primaryButton: {
+    backgroundColor: '#141416',
+    borderRadius: 500,
+    borderWidth: 1,
+    borderColor: '#27272A',
+    paddingVertical: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  primaryButtonText: {
+    fontFamily: Fonts.manropeBold,
+    color: '#FFFFFF',
+    fontSize: 15,
+    letterSpacing: -0.3,
   },
 });

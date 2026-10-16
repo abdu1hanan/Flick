@@ -25,12 +25,13 @@ class IslandView(context: Context) : FrameLayout(context) {
             shape = GradientDrawable.RECTANGLE
             cornerRadius = 500f * resources.displayMetrics.density
             setColor(0xFF000000.toInt())
+            setStroke((1.5f * resources.displayMetrics.density).toInt(), 0xB3FF6B00.toInt())
         }
         background = pill
         elevation = 8f * resources.displayMetrics.density
 
         val dp = resources.displayMetrics.density
-        val horizontal = (14 * dp).toInt()
+        val horizontal = (16 * dp).toInt()
         val vertical = (9 * dp).toInt()
         setPadding(horizontal, vertical, horizontal, vertical)
 
@@ -40,12 +41,12 @@ class IslandView(context: Context) : FrameLayout(context) {
         }
 
         iconView = ImageView(context).apply {
-            val size = (18 * dp).toInt()
+            val size = (16 * dp).toInt()
             layoutParams = LinearLayout.LayoutParams(size, size)
-            // Use the play triangle drawable
+            // Use the play triangle drawable in orange
             try {
                 setImageResource(resources.getIdentifier("ic_reel", "drawable", context.packageName))
-                setColorFilter(0xFFFFFFFF.toInt())
+                setColorFilter(0xFFFF6B00.toInt())
             } catch (e: Exception) {
                 // Fallback: no icon if resource not found
             }

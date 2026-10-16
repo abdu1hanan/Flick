@@ -22,6 +22,7 @@ import kotlinx.coroutines.launch
  * 3. Resets session count from 0 every time Instagram is closed/reopened.
  * 4. Only counts when scrolling UP to the NEXT reel (ignores scrolling down to old reels).
  * 5. Reliably registers every reel scroll without skipping ads or fast gestures.
+ * 6. Never falsely exits session on system UI, keyboards, or own overlay events.
  */
 class ReelAccessibilityService : AccessibilityService() {
 
@@ -90,34 +91,53 @@ class ReelAccessibilityService : AccessibilityService() {
         }
     }
 
+    private fun isIgnoredPackage(pkg: String): Boolean {
+        val p = pkg.lowercase()
+        return p == packageName.lowercase() ||
+               p == "android" ||
+               p == "com.android.systemui" ||
+               p.contains("keyboard") ||
+               p.contains("inputmethod") ||
+               p.contains("honeyboard") ||
+               p.contains("swiftkey") ||
+               p.contains("autofill")
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val pkg = event.packageName?.toString() ?: return
 
-        // 1. Handle app transitions (Instagram foreground vs background)
+        // 1. Ignore own overlay, system UI, and keyboards so session is never disrupted
+        if (isIgnoredPackage(pkg)) {
+            return
+        }
+
+        // 2. Handle app transitions (Instagram foreground vs background)
         if (pkg != "com.instagram.android") {
-            // A non-Instagram window gained focus (Launcher, Recents, other apps)
-            if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
-                event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
-                if (isInstagramForeground) {
-                    Log.d(TAG, "Left Instagram for $pkg: hiding overlay and resetting session")
-                    handleInstagramExited()
+            // Check if user actively transitioned away to another app or launcher
+            if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+                val activePkg = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
+                if (activePkg != null && activePkg != "com.instagram.android" && !isIgnoredPackage(activePkg)) {
+                    if (isInstagramForeground) {
+                        Log.d(TAG, "Left Instagram for $activePkg: hiding overlay and resetting session")
+                        handleInstagramExited()
+                    }
                 }
             }
             return
         }
 
-        // 2. Below this point, event is inside com.instagram.android
+        // 3. Below this point, event is inside com.instagram.android
         if (!isInstagramForeground) {
             Log.d(TAG, "Entered Instagram: showing overlay and starting fresh session")
             handleInstagramEntered()
         }
 
-        // 3. Update current surface (detect if in comments, DMs, etc.)
+        // 4. Update current surface (detect if in comments, DMs, etc.)
         val className = event.className?.toString()
         val eventTexts = event.text?.joinToString(" ")
         reelsScrollDetector.updateCurrentSurface(className, eventTexts)
 
-        // 4. Process reel scrolling (TYPE_VIEW_SCROLLED)
+        // 5. Process reel scrolling (TYPE_VIEW_SCROLLED)
         if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
             if (reelsScrollDetector.isNextReelScroll(event)) {
                 Log.d(TAG, "Next reel scroll registered: incrementing count")
