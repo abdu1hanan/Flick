@@ -7,7 +7,6 @@ import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
-import androidx.core.view.WindowInsetsCompat
 
 /**
  * Manages the floating Dynamic Island overlay using WindowManager.
@@ -23,25 +22,34 @@ class OverlayManager(private val context: Context) {
     fun show(count: Int) {
         if (!Settings.canDrawOverlays(context)) return
         mainHandler.post {
-            if (isShowing) return@post
+            if (isShowing) {
+                islandView?.setCount(count, animate = false)
+                return@post
+            }
             val view = IslandView(context)
             view.setCount(count, animate = false)
             val params = createLayoutParams()
-            windowManager.addView(view, params)
-            islandView = view
-            isShowing = true
+            try {
+                windowManager.addView(view, params)
+                islandView = view
+                isShowing = true
+            } catch (e: Exception) {
+                // View may already be added or permission revoked
+            }
         }
     }
 
     fun updateCount(count: Int) {
         mainHandler.post {
-            islandView?.setCount(count, animate = true)
+            if (isShowing) {
+                islandView?.setCount(count, animate = true)
+            }
         }
     }
 
     fun hide() {
         mainHandler.post {
-            if (!isShowing) return@post
+            if (!isShowing && islandView == null) return@post
             try {
                 islandView?.let { windowManager.removeView(it) }
             } catch (e: Exception) {

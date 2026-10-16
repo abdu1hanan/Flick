@@ -2,9 +2,9 @@ package com.reelcounter.flick
 
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class EndReason(val value: String) {
     USER_LEFT("USER_LEFT"),
@@ -21,8 +21,11 @@ data class ActiveSession(
 )
 
 /**
- * Manages session lifecycle with grace period support.
- * Writes all session state to Room via ReelRepository.
+ * Manages session lifecycle.
+ * Writes all session state to SQLite via ReelRepository.
+ *
+ * Ensures each time Instagram is opened after being closed or backgrounded,
+ * the session counter starts fresh from 0.
  */
 class SessionManager(
     private val context: Context,
@@ -30,18 +33,19 @@ class SessionManager(
     private val onCountUpdate: (sessionCount: Int, todayCount: Int) -> Unit
 ) {
     private val repo = ReelRepository(context)
+
+    @Volatile
     var activeSession: ActiveSession? = null
         private set
 
-    private var sessionEndJob: Job? = null
-    private val GRACE_PERIOD_MS = 3000L
+    val currentSessionCount: Int
+        get() = activeSession?.reelCount ?: 0
 
     /** Recover any sessions that were active when the process died. */
     suspend fun recoverOrphanedSessions() {
         val orphans = repo.getOrphanedSessions()
         for (orphan in orphans) {
             if (orphan.reelCount == 0) {
-                // Delete zero-count orphans by finalizing with EMPTY reason
                 repo.finalizeSession(orphan.id, System.currentTimeMillis(), EndReason.EMPTY.value)
             } else {
                 repo.finalizeSession(orphan.id, System.currentTimeMillis(), EndReason.PROCESS_DEATH.value)
@@ -49,23 +53,40 @@ class SessionManager(
         }
     }
 
-    /** Start a new session. */
-    fun startSession() {
-        sessionEndJob?.cancel()
-        sessionEndJob = null
+    /**
+     * Start a new session. Always resets the active count to 0.
+     */
+    fun startSession(onStarted: ((sessionCount: Int) -> Unit)? = null) {
+        val oldSession = activeSession
+        activeSession = null
 
-        if (activeSession != null) return // Already active
+        scope.launch(Dispatchers.IO) {
+            if (oldSession != null) {
+                val endTime = System.currentTimeMillis()
+                if (oldSession.reelCount == 0) {
+                    repo.finalizeSession(oldSession.dbId, endTime, EndReason.EMPTY.value)
+                } else {
+                    repo.finalizeSession(oldSession.dbId, endTime, EndReason.USER_LEFT.value)
+                }
+            }
 
-        scope.launch {
             val now = System.currentTimeMillis()
+            val today = DateUtils.todayLocalDate()
             val sessionId = repo.insertSession(
                 ReelSession(
                     startTime = now,
-                    localStartDate = DateUtils.todayLocalDate(),
+                    localStartDate = today,
                     reelCount = 0
                 )
             )
-            activeSession = ActiveSession(dbId = sessionId, startTime = now, reelCount = 0)
+            val newSession = ActiveSession(dbId = sessionId, startTime = now, reelCount = 0)
+            activeSession = newSession
+
+            val todayCount = repo.getCountForDate(today)
+            withContext(Dispatchers.Main) {
+                onCountUpdate(0, todayCount)
+                onStarted?.invoke(0)
+            }
         }
     }
 
@@ -74,7 +95,22 @@ class SessionManager(
      * Returns the new session count, or 0 if no session is active.
      */
     suspend fun incrementCount(): Int {
-        val session = activeSession ?: return 0
+        var session = activeSession
+        if (session == null) {
+            // Lazy start if not started yet
+            val now = System.currentTimeMillis()
+            val today = DateUtils.todayLocalDate()
+            val sessionId = repo.insertSession(
+                ReelSession(
+                    startTime = now,
+                    localStartDate = today,
+                    reelCount = 0
+                )
+            )
+            session = ActiveSession(dbId = sessionId, startTime = now, reelCount = 0)
+            activeSession = session
+        }
+
         session.reelCount++
         repo.incrementSessionCount(session.dbId)
 
@@ -85,43 +121,40 @@ class SessionManager(
                 sessionId = session.dbId,
                 timestamp = now,
                 localDate = today,
-                detectionSource = "COMBINED"
+                detectionSource = "SCROLL_UP"
             )
         )
 
         val todayCount = repo.getCountForDate(today)
-        onCountUpdate(session.reelCount, todayCount)
+        withContext(Dispatchers.Main) {
+            onCountUpdate(session.reelCount, todayCount)
+        }
         return session.reelCount
     }
 
     /**
-     * Schedule session finalization after the grace period.
-     * If Instagram regains focus before the grace period ends, this is cancelled.
+     * Finalize the active session immediately when Instagram is closed or backgrounded.
+     * Resets activeSession to null so the next session starts from 0.
      */
-    fun scheduleSessionEnd(reason: EndReason) {
-        sessionEndJob?.cancel()
-        sessionEndJob = scope.launch {
-            delay(GRACE_PERIOD_MS)
-            finalizeActiveSession(reason)
+    fun endSession(reason: EndReason = EndReason.BACKGROUNDED) {
+        val session = activeSession ?: return
+        activeSession = null
+
+        scope.launch(Dispatchers.IO) {
+            val endTime = System.currentTimeMillis()
+            if (session.reelCount == 0) {
+                repo.finalizeSession(session.dbId, endTime, EndReason.EMPTY.value)
+            } else {
+                repo.finalizeSession(session.dbId, endTime, reason.value)
+            }
         }
     }
 
-    /** Cancel a pending session end (Instagram regained focus within grace period). */
-    fun cancelSessionEnd() {
-        sessionEndJob?.cancel()
-        sessionEndJob = null
-    }
-
-    /** Immediately finalize the active session. */
     suspend fun finalizeActiveSession(reason: EndReason) {
         val session = activeSession ?: return
         activeSession = null
-        sessionEndJob?.cancel()
-        sessionEndJob = null
-
         val endTime = System.currentTimeMillis()
         if (session.reelCount == 0) {
-            // Don't keep zero-count sessions
             repo.finalizeSession(session.dbId, endTime, EndReason.EMPTY.value)
         } else {
             repo.finalizeSession(session.dbId, endTime, reason.value)
