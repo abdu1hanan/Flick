@@ -6,22 +6,31 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import kotlin.math.abs
 
+enum class ScrollDirection {
+    NONE,
+    NEXT,
+    PREVIOUS
+}
+
 /**
  * Robust directional scroll detector for Instagram Reels.
  *
  * Rules:
  * 1. ONLY counts when actively in the Reels viewer / Reels pager.
  * 2. NEVER counts when scrolling the main Instagram Home Feed, Explore grid, Comments, Stories, or DMs.
- * 3. ONLY counts when scrolling UP to watch the NEXT reel (finger moves bottom to top, content moves down: deltaY > 0).
- * 4. NEVER counts when scrolling DOWN to watch an OLD reel (finger moves top to bottom: deltaY < 0).
- * 5. NEVER counts horizontal scrolls (Stories, Carousels, Direct tabs: abs(deltaX) > abs(deltaY)).
- * 6. Uses a 380ms debounce lockout to prevent duplicate events from a single swipe gesture.
+ * 3. Distinguishes scrolling UP for NEXT reel vs scrolling DOWN for PREVIOUS reel.
+ * 4. Rejects micro-jiggles and halfway-holds: requires significant cumulative displacement
+ *    (>= MIN_SWIPE_DISPLACEMENT_PX) and limits to at most ONE reel commit per touch gesture.
+ * 5. Uses active reel signature checks to prevent false counts on snap-backs.
+ * 6. Lockout cooldown between consecutive reels.
  */
 class ReelsScrollDetector {
 
     companion object {
         private const val TAG = "ReelsScrollDetector"
-        private const val LOCKOUT_MS = 380L
+        private const val LOCKOUT_MS = 350L
+        private const val GESTURE_TIMEOUT_MS = 280L
+        private const val MIN_SWIPE_DISPLACEMENT_PX = 200
 
         private val REELS_KEYWORDS = listOf(
             "clips", "reel", "video_player", "video_cell", "clips_viewer",
@@ -40,29 +49,33 @@ class ReelsScrollDetector {
     }
 
     private var lastCommitTime = 0L
+    private var lastScrollEventTime = 0L
+    private var accumulatedDeltaY = 0
+    private var gestureCommitted = false
     private var lastSeenToIndex = -1
     private var lastSeenScrollY = -1
     private var currentSurface = ""
+    private var lastCommittedSignature = ""
 
     fun updateCurrentSurface(className: String?, text: String?) {
         val s = (className ?: "") + " " + (text ?: "")
         currentSurface = s.lowercase()
     }
 
-    fun isNextReelScroll(event: AccessibilityEvent): Boolean {
+    fun detectScrollDirection(event: AccessibilityEvent): ScrollDirection {
         // 1. Reject if this is the Home Feed
         if (isHomeFeed(event)) {
-            return false
+            return ScrollDirection.NONE
         }
 
         // 2. Reject known non-reels surfaces (comments, DM, profile, stories)
         if (isNonReelsSurface(event)) {
-            return false
+            return ScrollDirection.NONE
         }
 
         // 3. Must have strong Reels signal
         if (!isReelSurface(event)) {
-            return false
+            return ScrollDirection.NONE
         }
 
         // 4. Reject horizontal scrolls (Stories, Carousel posts, tab switches)
@@ -70,67 +83,115 @@ class ReelsScrollDetector {
         val deltaY = event.scrollDeltaY
 
         if (abs(deltaX) > abs(deltaY) && abs(deltaX) > 10) {
-            return false
+            return ScrollDirection.NONE
         }
 
-        // 5. Determine scroll direction
-        var isForward = false
-        var isBackward = false
-
-        if (abs(deltaY) > 5) {
-            // High confidence scrollDeltaY from OS
-            // Swiping UP to see NEXT reel produces deltaY > 0
-            if (deltaY > 0) {
-                isForward = true
-            } else {
-                isBackward = true
-            }
-        } else {
-            // Fallback 1: ViewPager item index
-            val toIndex = event.toIndex
-            if (toIndex != -1 && lastSeenToIndex != -1 && toIndex != lastSeenToIndex) {
-                if (toIndex > lastSeenToIndex) {
-                    isForward = true
-                } else {
-                    isBackward = true
-                }
-            }
-            if (toIndex != -1) {
-                lastSeenToIndex = toIndex
-            }
-
-            // Fallback 2: ScrollY position
-            val scrollY = event.scrollY
-            if (!isForward && !isBackward && scrollY != -1 && lastSeenScrollY != -1 && scrollY != lastSeenScrollY) {
-                val diff = scrollY - lastSeenScrollY
-                if (diff > 30) {
-                    isForward = true
-                } else if (diff < -30) {
-                    isBackward = true
-                }
-            }
-            if (scrollY != -1) {
-                lastSeenScrollY = scrollY
-            }
-        }
-
-        // If user is scrolling down to watch an old reel, NEVER count
-        if (isBackward) {
-            return false
-        }
-
-        if (!isForward) {
-            return false
-        }
-
-        // 6. Debounce lockout check
         val now = SystemClock.elapsedRealtime()
-        if (now - lastCommitTime < LOCKOUT_MS) {
-            return false
+
+        // Manage gesture timeout: if events paused > GESTURE_TIMEOUT_MS, user lifted finger / gesture settled
+        if (now - lastScrollEventTime > GESTURE_TIMEOUT_MS) {
+            accumulatedDeltaY = 0
+            gestureCommitted = false
+        }
+        lastScrollEventTime = now
+
+        // Check ViewPager / RecyclerView page index change
+        val toIndex = event.toIndex
+        if (toIndex != -1 && lastSeenToIndex != -1 && toIndex != lastSeenToIndex) {
+            val isNext = toIndex > lastSeenToIndex
+            lastSeenToIndex = toIndex
+            if (now - lastCommitTime >= LOCKOUT_MS) {
+                lastCommitTime = now
+                gestureCommitted = true
+                accumulatedDeltaY = 0
+                return if (isNext) ScrollDirection.NEXT else ScrollDirection.PREVIOUS
+            }
+        }
+        if (toIndex != -1) {
+            lastSeenToIndex = toIndex
         }
 
+        // Accumulate displacement for the active gesture
+        accumulatedDeltaY += deltaY
+
+        // If this gesture has already committed a reel, do not commit again until settled
+        if (gestureCommitted) {
+            return ScrollDirection.NONE
+        }
+
+        // Check if cumulative gesture has exceeded the real swipe displacement threshold
+        var candidateDirection = ScrollDirection.NONE
+        if (accumulatedDeltaY >= MIN_SWIPE_DISPLACEMENT_PX) {
+            candidateDirection = ScrollDirection.NEXT
+        } else if (accumulatedDeltaY <= -MIN_SWIPE_DISPLACEMENT_PX) {
+            candidateDirection = ScrollDirection.PREVIOUS
+        }
+
+        // Fallback: large single-event scrollY jump
+        val scrollY = event.scrollY
+        if (candidateDirection == ScrollDirection.NONE && scrollY != -1 && lastSeenScrollY != -1 && scrollY != lastSeenScrollY) {
+            val diff = scrollY - lastSeenScrollY
+            if (diff > 120) {
+                candidateDirection = ScrollDirection.NEXT
+            } else if (diff < -120) {
+                candidateDirection = ScrollDirection.PREVIOUS
+            }
+        }
+        if (scrollY != -1) {
+            lastSeenScrollY = scrollY
+        }
+
+        if (candidateDirection == ScrollDirection.NONE) {
+            return ScrollDirection.NONE
+        }
+
+        // Lockout check
+        if (now - lastCommitTime < LOCKOUT_MS) {
+            return ScrollDirection.NONE
+        }
+
+        // Reel signature verification (if available) to ensure reel actually changed
+        val currentSig = extractReelSignature(event)
+        if (currentSig.isNotEmpty() && currentSig == lastCommittedSignature) {
+            // Still on the same reel, false trigger or jiggle
+            return ScrollDirection.NONE
+        }
+
+        // Commit candidate scroll
         lastCommitTime = now
-        return true
+        gestureCommitted = true
+        if (currentSig.isNotEmpty()) {
+            lastCommittedSignature = currentSig
+        }
+        accumulatedDeltaY = 0
+
+        return candidateDirection
+    }
+
+    private fun extractReelSignature(event: AccessibilityEvent): String {
+        val node = try { event.source } catch (e: Exception) { null } ?: return ""
+        val sb = StringBuilder()
+        collectSignatureText(node, sb, 0)
+        return sb.toString().trim()
+    }
+
+    private fun collectSignatureText(node: AccessibilityNodeInfo, sb: StringBuilder, depth: Int) {
+        if (depth > 3 || sb.length > 80) return
+        val text = node.text?.toString()?.trim()
+        val desc = node.contentDescription?.toString()?.trim()
+        val id = try { node.viewIdResourceName ?: "" } catch (e: Exception) { "" }
+
+        if (!text.isNullOrEmpty() && (id.contains("author") || id.contains("user") || id.contains("profile") || text.startsWith("@"))) {
+            sb.append(text).append(":")
+        } else if (!desc.isNullOrEmpty() && (id.contains("sound") || id.contains("audio") || desc.contains("audio"))) {
+            sb.append(desc).append(":")
+        }
+
+        val childCount = try { node.childCount } catch (e: Exception) { 0 }
+        for (i in 0 until childCount) {
+            val child = try { node.getChild(i) } catch (e: Exception) { null } ?: continue
+            collectSignatureText(child, sb, depth + 1)
+        }
     }
 
     private fun isHomeFeed(event: AccessibilityEvent): Boolean {
@@ -240,8 +301,12 @@ class ReelsScrollDetector {
 
     fun reset() {
         lastCommitTime = 0L
+        lastScrollEventTime = 0L
+        accumulatedDeltaY = 0
+        gestureCommitted = false
         lastSeenToIndex = -1
         lastSeenScrollY = -1
         currentSurface = ""
+        lastCommittedSignature = ""
     }
 }

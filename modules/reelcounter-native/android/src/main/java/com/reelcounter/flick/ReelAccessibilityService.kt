@@ -9,20 +9,24 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
- * Main AccessibilityService entry point.
+ * Main AccessibilityService entry point for Flick.
  *
  * Responsibilities:
  * 1. Shows the pill overlay ONLY when Instagram is in the foreground.
- * 2. Hides the overlay immediately when user leaves Instagram (Home, Recents, other apps, screen off).
+ * 2. Strictly hides the overlay immediately when user leaves Instagram (Home, Recents, other apps, screen off).
  * 3. Resets session count from 0 every time Instagram is closed/reopened.
- * 4. Only counts when scrolling UP to the NEXT reel (ignores scrolling down to old reels).
- * 5. Reliably registers every reel scroll without skipping ads or fast gestures.
- * 6. Never falsely exits session on system UI, keyboards, or own overlay events.
+ * 4. Tracks reel scroll direction: handles backtracking separately so main counter stays real.
+ * 5. Rejects micro-jiggles, holds, and partial drags.
+ * 6. Supports dragging and on-tap theme cycling.
  */
 class ReelAccessibilityService : AccessibilityService() {
 
@@ -38,12 +42,20 @@ class ReelAccessibilityService : AccessibilityService() {
     private val reelsScrollDetector = ReelsScrollDetector()
     private var overlayEnabled = true
     private var isInstagramForeground = false
+    private var watchdogJob: Job? = null
 
-    private val screenReceiver = object : BroadcastReceiver() {
+    private val systemReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == Intent.ACTION_SCREEN_OFF) {
-                Log.d(TAG, "Screen turned off: exiting Instagram session")
-                handleInstagramExited()
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    Log.d(TAG, "Screen turned off: exiting Instagram session")
+                    handleInstagramExited()
+                }
+                Intent.ACTION_CLOSE_SYSTEM_DIALOGS -> {
+                    val reason = intent.getStringExtra("reason")
+                    Log.d(TAG, "System dialogs closed (reason: $reason): exiting Instagram session")
+                    handleInstagramExited()
+                }
             }
         }
     }
@@ -64,12 +76,23 @@ class ReelAccessibilityService : AccessibilityService() {
             }
         )
 
-        // Register screen receiver to hide overlay when screen turns off
+        // Callback when user taps the overlay to cycle theme
+        overlayManager.onThemeCycled = { newTheme ->
+            serviceScope.launch(Dispatchers.IO) {
+                PreferencesRepository(this@ReelAccessibilityService).setIslandTheme(newTheme)
+                ReelCounterModule.emitThemeChanged(newTheme)
+            }
+        }
+
+        // Register receiver to instantly catch screen-off, home button, and recents button
         try {
-            val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
-            registerReceiver(screenReceiver, filter)
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)
+            }
+            registerReceiver(systemReceiver, filter)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to register screenReceiver", e)
+            Log.e(TAG, "Failed to register systemReceiver", e)
         }
 
         // Recover any orphaned sessions from previous process death
@@ -77,48 +100,71 @@ class ReelAccessibilityService : AccessibilityService() {
             sessionManager.recoverOrphanedSessions()
         }
 
+        val prefs = PreferencesRepository(this)
+
         // Read user overlay preference
         serviceScope.launch(Dispatchers.IO) {
-            PreferencesRepository(this@ReelAccessibilityService)
-                .overlayEnabled.collect { enabled ->
-                    overlayEnabled = enabled
+            prefs.overlayEnabled.collectLatest { enabled ->
+                overlayEnabled = enabled
+                withContext(Dispatchers.Main) {
                     if (!enabled) {
                         overlayManager.hide()
                     } else if (isInstagramForeground) {
                         overlayManager.show(sessionManager.currentSessionCount)
                     }
                 }
+            }
+        }
+
+        // Read theme preference
+        serviceScope.launch(Dispatchers.IO) {
+            prefs.islandTheme.collectLatest { theme ->
+                withContext(Dispatchers.Main) {
+                    overlayManager.setTheme(theme)
+                }
+            }
+        }
+
+        // Read tap-to-cycle preference
+        serviceScope.launch(Dispatchers.IO) {
+            prefs.tapToCycleTheme.collectLatest { allowTap ->
+                withContext(Dispatchers.Main) {
+                    overlayManager.setTapToCycleEnabled(allowTap)
+                }
+            }
         }
     }
 
-    private fun isIgnoredPackage(pkg: String): Boolean {
+    private fun isKeyboardPackage(pkg: String): Boolean {
         val p = pkg.lowercase()
-        return p == packageName.lowercase() ||
-               p == "android" ||
-               p == "com.android.systemui" ||
-               p.contains("keyboard") ||
+        return p.contains("keyboard") ||
                p.contains("inputmethod") ||
                p.contains("honeyboard") ||
                p.contains("swiftkey") ||
+               p.contains("gboard") ||
                p.contains("autofill")
+    }
+
+    private fun isOwnApp(pkg: String): Boolean {
+        return pkg.equals(packageName, ignoreCase = true)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val pkg = event.packageName?.toString() ?: return
 
-        // 1. Ignore own overlay, system UI, and keyboards so session is never disrupted
-        if (isIgnoredPackage(pkg)) {
+        // 1. Ignore own overlay interactions so they don't count or dismiss session
+        if (isOwnApp(pkg)) {
             return
         }
 
         // 2. Handle app transitions (Instagram foreground vs background)
         if (pkg != "com.instagram.android") {
-            // Check if user actively transitioned away to another app or launcher
-            if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            // If it's not a soft keyboard, check if Instagram has been left
+            if (!isKeyboardPackage(pkg)) {
                 val activePkg = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
-                if (activePkg != null && activePkg != "com.instagram.android" && !isIgnoredPackage(activePkg)) {
+                if (activePkg != "com.instagram.android") {
                     if (isInstagramForeground) {
-                        Log.d(TAG, "Left Instagram for $activePkg: hiding overlay and resetting session")
+                        Log.d(TAG, "Transitioned to $pkg (active: $activePkg): hiding overlay")
                         handleInstagramExited()
                     }
                 }
@@ -137,12 +183,43 @@ class ReelAccessibilityService : AccessibilityService() {
         val eventTexts = event.text?.joinToString(" ")
         reelsScrollDetector.updateCurrentSurface(className, eventTexts)
 
-        // 5. Process reel scrolling (TYPE_VIEW_SCROLLED)
+        // 5. Process reel scrolling
         if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
-            if (reelsScrollDetector.isNextReelScroll(event)) {
-                Log.d(TAG, "Next reel scroll registered: incrementing count")
-                serviceScope.launch {
-                    sessionManager.incrementCount()
+            when (reelsScrollDetector.detectScrollDirection(event)) {
+                ScrollDirection.NEXT -> {
+                    serviceScope.launch {
+                        sessionManager.handleNextReel()
+                    }
+                }
+                ScrollDirection.PREVIOUS -> {
+                    sessionManager.handlePreviousReel()
+                }
+                ScrollDirection.NONE -> {}
+            }
+        } else if (event.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+            checkForegroundStatus()
+        }
+    }
+
+    private fun checkForegroundStatus() {
+        if (!isInstagramForeground) return
+        val activePkg = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
+        if (activePkg != null && activePkg != "com.instagram.android" && !isKeyboardPackage(activePkg)) {
+            Log.d(TAG, "checkForegroundStatus: active package changed to $activePkg")
+            handleInstagramExited()
+        }
+    }
+
+    private fun startWatchdog() {
+        watchdogJob?.cancel()
+        watchdogJob = serviceScope.launch {
+            while (isInstagramForeground) {
+                delay(400)
+                val activePkg = try { rootInActiveWindow?.packageName?.toString() } catch (e: Exception) { null }
+                if (activePkg != null && activePkg != "com.instagram.android" && !isKeyboardPackage(activePkg)) {
+                    Log.d(TAG, "Watchdog detected exit to $activePkg")
+                    handleInstagramExited()
+                    break
                 }
             }
         }
@@ -151,6 +228,7 @@ class ReelAccessibilityService : AccessibilityService() {
     private fun handleInstagramEntered() {
         isInstagramForeground = true
         reelsScrollDetector.reset()
+        startWatchdog()
         sessionManager.startSession { initialCount ->
             if (overlayEnabled) {
                 overlayManager.show(initialCount)
@@ -161,6 +239,8 @@ class ReelAccessibilityService : AccessibilityService() {
     private fun handleInstagramExited() {
         if (!isInstagramForeground) return
         isInstagramForeground = false
+        watchdogJob?.cancel()
+        watchdogJob = null
         overlayManager.hide()
         reelsScrollDetector.reset()
         sessionManager.endSession(EndReason.BACKGROUNDED)
@@ -175,7 +255,7 @@ class ReelAccessibilityService : AccessibilityService() {
         Log.d(TAG, "Service destroyed")
         instance = null
         try {
-            unregisterReceiver(screenReceiver)
+            unregisterReceiver(systemReceiver)
         } catch (e: Exception) {
             // Ignore
         }
@@ -192,5 +272,15 @@ class ReelAccessibilityService : AccessibilityService() {
         } else if (isInstagramForeground) {
             overlayManager.show(sessionManager.currentSessionCount)
         }
+    }
+
+    /** Called by ReelCounterModule when theme preference changes. */
+    fun setIslandTheme(theme: String) {
+        overlayManager.setTheme(theme)
+    }
+
+    /** Called by ReelCounterModule when tap to cycle preference changes. */
+    fun setTapToCycleEnabled(enabled: Boolean) {
+        overlayManager.setTapToCycleEnabled(enabled)
     }
 }

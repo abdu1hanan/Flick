@@ -1,5 +1,5 @@
 import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
-import type { DailySummary, SessionStats, ReelCountedEvent } from '../../../types';
+import type { DailySummary, SessionStats, ReelCountedEvent, IslandThemeId, ThemeChangedEvent } from '../../../types';
 
 const LINKING_ERROR =
   `The package 'reelcounter-native' doesn't seem to be linked. Make sure: \n\n` +
@@ -40,6 +40,10 @@ export interface ReelCounterModuleType {
   // Preferences
   getOverlayPreference(): Promise<boolean>;
   setOverlayPreference(enabled: boolean): Promise<void>;
+  getTheme(): Promise<IslandThemeId>;
+  setTheme(themeId: IslandThemeId): Promise<void>;
+  getTapToCycleTheme(): Promise<boolean>;
+  setTapToCycleTheme(enabled: boolean): Promise<void>;
 
   // Data management
   clearAllData(): Promise<void>;
@@ -56,5 +60,13 @@ export function addReelCountedListener(
   return subscription;
 }
 
-export { DailySummary, SessionStats, ReelCountedEvent };
+export function addThemeChangedListener(
+  listener: (data: ThemeChangedEvent) => void
+) {
+  if (!eventEmitter) return { remove: () => {} };
+  const subscription = eventEmitter.addListener('onThemeChanged', listener);
+  return subscription;
+}
+
+export { DailySummary, SessionStats, ReelCountedEvent, IslandThemeId, ThemeChangedEvent };
 export default ReelCounter;

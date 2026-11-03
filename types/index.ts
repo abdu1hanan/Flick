@@ -31,3 +31,9 @@ export interface ReelCountedEvent {
   todayCount: number;
   sessionCount: number;
 }
+
+export type IslandThemeId = 'classic' | 'neko' | 'pixel' | 'cloud';
+
+export interface ThemeChangedEvent {
+  theme: IslandThemeId;
+}

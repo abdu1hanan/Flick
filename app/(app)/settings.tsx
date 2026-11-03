@@ -14,19 +14,39 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
 import { usePermissions } from '../../hooks/usePermissions';
 import { PermissionRow } from '../../components/PermissionRow';
-import ReelCounter from '../../modules/reelcounter-native/src';
+import ReelCounter, { addThemeChangedListener } from '../../modules/reelcounter-native/src';
 import { Spacing, Radius } from '../../constants/spacing';
 import { Fonts } from '../../constants/typography';
+import type { IslandThemeId } from '../../types';
+
+const THEME_NAMES: Record<IslandThemeId, string> = {
+  classic: 'Classic Island',
+  neko: 'Neko Cat',
+  pixel: 'Pixel Arcade',
+  cloud: 'Cloud Bunny',
+};
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { permissions, recheck } = usePermissions();
   const [overlayEnabled, setOverlayEnabled] = useState(true);
+  const [currentTheme, setCurrentTheme] = useState<IslandThemeId>('classic');
   const [clearing, setClearing] = useState(false);
 
-  // Load overlay pref on mount
+  // Load overlay pref & theme on mount
   React.useEffect(() => {
     ReelCounter.getOverlayPreference().then(setOverlayEnabled).catch(() => {});
+    ReelCounter.getTheme().then((t) => {
+      if (t) setCurrentTheme(t);
+    }).catch(() => {});
+
+    const sub = addThemeChangedListener((e) => {
+      if (e.theme) setCurrentTheme(e.theme);
+    });
+
+    return () => {
+      sub.remove();
+    };
   }, []);
 
   const handleOverlayToggle = useCallback(async (val: boolean) => {
@@ -123,7 +143,7 @@ export default function SettingsScreen() {
         {/* Overlay */}
         <Text style={styles.sectionHeader}>Floating Island</Text>
         <View style={styles.card}>
-          <View style={[styles.row, { borderBottomWidth: 0 }]}>
+          <View style={styles.row}>
             <View>
               <Text style={styles.rowLabel}>Show Island Overlay</Text>
               <Text style={styles.rowSub}>Display pill counter while in Instagram</Text>
@@ -135,6 +155,20 @@ export default function SettingsScreen() {
               thumbColor="#FFFFFF"
             />
           </View>
+          <TouchableOpacity
+            style={[styles.row, { borderBottomWidth: 0 }]}
+            onPress={() => router.push('/(app)/theme')}
+            activeOpacity={0.7}
+          >
+            <View>
+              <Text style={styles.rowLabel}>Theme</Text>
+              <Text style={styles.rowSub}>Customize snackbar appearance</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.rowValue}>{THEME_NAMES[currentTheme] ?? 'Classic'}</Text>
+              <Text style={{ color: '#8E8E96', fontSize: 16 }}>›</Text>
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Data */}

@@ -227,7 +227,7 @@ function ensureStringsEntries(resDir) {
         return;
     let content = fs.readFileSync(stringsPath, 'utf8');
     const entries = {
-        accessibility_service_label: 'Flick Reel Counter',
+        accessibility_service_label: 'Flick',
         accessibility_service_description: 'Counts Instagram Reels you watch. No content is read or stored.',
         widget_description: 'Shows your daily Instagram Reels count.',
     };

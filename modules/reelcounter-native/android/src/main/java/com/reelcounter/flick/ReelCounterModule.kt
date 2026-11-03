@@ -174,6 +174,56 @@ class ReelCounterModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    @ReactMethod
+    fun getTheme(promise: Promise) {
+        moduleScope.launch {
+            try {
+                val theme = PreferencesRepository(reactApplicationContext).getIslandTheme()
+                promise.resolve(theme)
+            } catch (e: Exception) {
+                promise.resolve("classic")
+            }
+        }
+    }
+
+    @ReactMethod
+    fun setTheme(theme: String, promise: Promise) {
+        moduleScope.launch {
+            try {
+                PreferencesRepository(reactApplicationContext).setIslandTheme(theme)
+                ReelAccessibilityService.instance?.setIslandTheme(theme)
+                promise.resolve(null)
+            } catch (e: Exception) {
+                promise.reject("PREF_ERROR", e.message)
+            }
+        }
+    }
+
+    @ReactMethod
+    fun getTapToCycleTheme(promise: Promise) {
+        moduleScope.launch {
+            try {
+                val enabled = PreferencesRepository(reactApplicationContext).getTapToCycleTheme()
+                promise.resolve(enabled)
+            } catch (e: Exception) {
+                promise.resolve(true)
+            }
+        }
+    }
+
+    @ReactMethod
+    fun setTapToCycleTheme(enabled: Boolean, promise: Promise) {
+        moduleScope.launch {
+            try {
+                PreferencesRepository(reactApplicationContext).setTapToCycleTheme(enabled)
+                ReelAccessibilityService.instance?.setTapToCycleEnabled(enabled)
+                promise.resolve(null)
+            } catch (e: Exception) {
+                promise.reject("PREF_ERROR", e.message)
+            }
+        }
+    }
+
     // ---- Data management ----
 
     @ReactMethod
@@ -223,6 +273,16 @@ class ReelCounterModule(reactContext: ReactApplicationContext) :
                 map.putInt("sessionCount", sessionCount)
                 map.putInt("todayCount", todayCount)
                 eventEmitter?.emit("onReelCounted", map)
+            } catch (e: Exception) {
+                // RN context may not be active; safe to ignore
+            }
+        }
+
+        fun emitThemeChanged(theme: String) {
+            try {
+                val map = Arguments.createMap()
+                map.putString("theme", theme)
+                eventEmitter?.emit("onThemeChanged", map)
             } catch (e: Exception) {
                 // RN context may not be active; safe to ignore
             }

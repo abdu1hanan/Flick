@@ -18,8 +18,10 @@ import { SessionStatsCard } from '../../components/SessionStats';
 import { DayRow } from '../../components/DayRow';
 import { IslandPreview } from '../../components/IslandPreview';
 import { EmptyState } from '../../components/EmptyState';
+import ReelCounter, { addThemeChangedListener } from '../../modules/reelcounter-native/src';
 import { Spacing } from '../../constants/spacing';
 import { Fonts } from '../../constants/typography';
+import type { IslandThemeId } from '../../types';
 
 function todayDateStr(): string {
   const d = new Date();
@@ -34,7 +36,23 @@ export default function DashboardScreen() {
   const { stats, loading, refresh } = useReelStats();
   const { permissions } = usePermissions();
   const [todayLive, setTodayLive] = useState<number | null>(null);
+  const [currentTheme, setCurrentTheme] = useState<IslandThemeId>('classic');
   const [refreshing, setRefreshing] = useState(false);
+
+  // Load theme & listen to theme changes
+  React.useEffect(() => {
+    ReelCounter.getTheme().then((t) => {
+      if (t) setCurrentTheme(t);
+    }).catch(() => {});
+
+    const sub = addThemeChangedListener((e) => {
+      if (e.theme) setCurrentTheme(e.theme);
+    });
+
+    return () => {
+      sub.remove();
+    };
+  }, []);
 
   // Live update from native event
   useReelEvent((event) => {
@@ -101,7 +119,7 @@ export default function DashboardScreen() {
               <Text style={styles.heroNumber}>{displayToday}</Text>
               <Text style={styles.heroLabel}>reels today</Text>
               <View style={styles.heroPillContainer}>
-                <IslandPreview count={displayToday} />
+                <IslandPreview count={displayToday} theme={currentTheme} />
               </View>
             </View>
 

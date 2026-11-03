@@ -38,6 +38,10 @@ class SessionManager(
     var activeSession: ActiveSession? = null
         private set
 
+    @Volatile
+    var backtrackDebt: Int = 0
+        private set
+
     val currentSessionCount: Int
         get() = activeSession?.reelCount ?: 0
 
@@ -54,11 +58,12 @@ class SessionManager(
     }
 
     /**
-     * Start a new session. Always resets the active count to 0.
+     * Start a new session. Always resets the active count and backtrack debt to 0.
      */
     fun startSession(onStarted: ((sessionCount: Int) -> Unit)? = null) {
         val oldSession = activeSession
         activeSession = null
+        backtrackDebt = 0
 
         scope.launch(Dispatchers.IO) {
             if (oldSession != null) {
@@ -133,12 +138,43 @@ class SessionManager(
     }
 
     /**
+     * Called when user scrolls backward to a previous reel.
+     * Backtrack debt is increased (capped at the current session reel count),
+     * ensuring the main counter never decrements, but future forward scrolls
+     * will first consume this debt before incrementing.
+     */
+    fun handlePreviousReel() {
+        val maxBacktrack = activeSession?.reelCount ?: 0
+        if (backtrackDebt < maxBacktrack) {
+            backtrackDebt++
+            android.util.Log.d("SessionManager", "Scrolled back: backtrackDebt=$backtrackDebt / max=$maxBacktrack")
+        }
+    }
+
+    /**
+     * Called when user scrolls forward to the next reel.
+     * If user had backtracked, uses up 1 backtrack count without incrementing the main counter.
+     * Otherwise increments the session count.
+     * Returns true if main counter incremented, false if backtrack debt was consumed.
+     */
+    suspend fun handleNextReel(): Boolean {
+        if (backtrackDebt > 0) {
+            backtrackDebt--
+            android.util.Log.d("SessionManager", "Re-watching reel: remaining backtrackDebt=$backtrackDebt")
+            return false
+        }
+        incrementCount()
+        return true
+    }
+
+    /**
      * Finalize the active session immediately when Instagram is closed or backgrounded.
      * Resets activeSession to null so the next session starts from 0.
      */
     fun endSession(reason: EndReason = EndReason.BACKGROUNDED) {
         val session = activeSession ?: return
         activeSession = null
+        backtrackDebt = 0
 
         scope.launch(Dispatchers.IO) {
             val endTime = System.currentTimeMillis()
