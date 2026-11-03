@@ -21,7 +21,7 @@ class OverlayManager(private val context: Context) {
     private var currentCount = 0
 
     var currentTheme = "classic"
-    var tapToCycleEnabled = true
+    private var isTapToCycleEnabled = true
     var onThemeCycled: ((String) -> Unit)? = null
 
     fun setTheme(theme: String) {
@@ -32,7 +32,7 @@ class OverlayManager(private val context: Context) {
     }
 
     fun setTapToCycleEnabled(enabled: Boolean) {
-        tapToCycleEnabled = enabled
+        isTapToCycleEnabled = enabled
         mainHandler.post {
             islandView?.tapToCycleEnabled = enabled
         }
@@ -48,7 +48,7 @@ class OverlayManager(private val context: Context) {
             }
             val params = createLayoutParams()
             val view = IslandView(context, windowManager, params).apply {
-                this.tapToCycleEnabled = this@OverlayManager.tapToCycleEnabled
+                this.tapToCycleEnabled = this@OverlayManager.isTapToCycleEnabled
                 this.setTheme(this@OverlayManager.currentTheme)
                 this.setCount(count, animate = false)
                 this.onThemeCycled = { theme ->
