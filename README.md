@@ -1,10 +1,19 @@
-# Flick — ReelCounter
+# Flick
 
-A minimal, local-first Android app that counts Instagram Reels automatically using Android's AccessibilityService.
+<p align="center">
+  <a href="https://github.com/abdu1hanan/Flick/releases/latest">
+    <img src="https://img.shields.io/badge/Download-APK-FF6B00?style=for-the-badge&logo=android&logoColor=white" alt="Download APK" />
+  </a>
+</p>
+
+A minimal, privacy-first Android app that automatically tracks and counts Instagram Reels you watch via a draggable floating island overlay. Built with React Native and native Kotlin AccessibilityService, it features intelligent scroll detection with backtrack memory, 4 cute customizable theme presets, and detailed session analytics. 100% on-device with zero telemetry or network requests.
 
 ## Features
 
-- **Floating island** — live session counter above Instagram
+- **Floating island** — live, draggable session counter overlay above Instagram
+- **4 cute themes** — Classic Island, Neko Cat, Pixel Arcade, and Cloud Bunny with on-tap cycling
+- **Smart scroll detection** — backtrack memory and jiggle rejection so only genuinely new reels increment the count
+- **App-bound overlay** — strictly appears inside Instagram only, hiding instantly on home/recents or screen-off
 - **Home-screen widget** — daily total at a glance  
 - **Dashboard** — today, weekly, historical stats + session breakdown  
 - **100% local** — no accounts, no cloud, no analytics
