@@ -1,10 +1,4 @@
-# Flick
-
-<p align="center">
-  <a href="https://github.com/abdu1hanan/Flick/releases/latest">
-    <img src="https://img.shields.io/badge/Download-APK-FF6B00?style=for-the-badge&logo=android&logoColor=white" alt="Download APK" />
-  </a>
-</p>
+# Flick <a href="https://github.com/abdu1hanan/Flick/releases/latest"><img align="right" src="https://img.shields.io/badge/Download-APK-FF6B00?style=for-the-badge&logo=android&logoColor=white" alt="Download APK" /></a>
 
 A minimal, privacy-first Android app that automatically tracks and counts Instagram Reels you watch via a draggable floating island overlay. Built with React Native and native Kotlin AccessibilityService, it features intelligent scroll detection with backtrack memory, 4 cute customizable theme presets, and detailed session analytics. 100% on-device with zero telemetry or network requests.
 

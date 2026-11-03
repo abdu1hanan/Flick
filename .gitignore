@@ -38,6 +38,9 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# agent rules
+AGENTS.md
+
 # generated native folders
 /ios
 /android

@@ -114,7 +114,7 @@ export default function DashboardScreen() {
           </View>
         ) : (
           <>
-            {/* Hero Card: Minimal, clean, no AI slop */}
+            {/* Hero Card: Minimal, clean daily counter */}
             <View style={styles.heroCard}>
               <Text style={styles.heroNumber}>{displayToday}</Text>
               <Text style={styles.heroLabel}>reels today</Text>
